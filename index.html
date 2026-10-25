@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f6fb">
+  <title>MNIST 손글씨 숫자 인식기</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #182230;
+      background: #f4f6fb;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      --border: #e1e6ef;
+      --muted: #657287;
+      --accent: #4f46e5;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .app-shell {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      padding: 32px;
+    }
+
+    .page-header {
+      margin-bottom: 24px;
+    }
+
+    .page-header h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      letter-spacing: -0.04em;
+    }
+
+    .page-header p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(230px, 280px) minmax(0, 1fr);
+      align-items: start;
+      gap: 24px;
+    }
+
+    .settings-panel,
+    .content-panel {
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 8px 24px rgb(24 34 48 / 4%);
+    }
+
+    .settings-panel {
+      padding: 22px;
+    }
+
+    .settings-panel h2,
+    .tab-content h2 {
+      margin: 0;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .settings-group {
+      margin-top: 18px;
+    }
+
+    .settings-group label {
+      display: block;
+      margin: 12px 0 6px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    input,
+    .action-button {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 11px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #fff;
+      color: inherit;
+      font: inherit;
+    }
+
+    .action-button {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .action-button.secondary {
+      border-color: var(--border);
+      background: #fff;
+      color: #273449;
+    }
+
+    .action-button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .button-stack {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .status-message {
+      min-height: 1.4em;
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
+    .status-message.error {
+      color: #b42318;
+    }
+
+    .status-message.success {
+      color: #067647;
+    }
+
+    progress {
+      width: 100%;
+      height: 10px;
+      margin-top: 8px;
+      accent-color: var(--accent);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .stat-card,
+    .chart-card {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .stat-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .stat-card strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 1.35rem;
+    }
+
+    .digit-counts {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin: 12px 0 24px;
+    }
+
+    .digit-count {
+      padding: 8px 5px;
+      border-radius: 8px;
+      background: #f4f6fb;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+
+    .digit-gallery,
+    .mistake-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .digit-card {
+      margin: 0;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .digit-card canvas {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1;
+      image-rendering: pixelated;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #000;
+    }
+
+    .training-toolbar,
+    .test-layout,
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .chart-card h3,
+    .tab-content h3 {
+      margin: 0 0 12px;
+      font-size: 0.98rem;
+    }
+
+    .chart-card canvas {
+      display: block;
+      width: 100%;
+      height: 250px;
+    }
+
+    .matrix-wrap {
+      max-width: 100%;
+      overflow: auto;
+    }
+
+    .confusion-matrix {
+      border-collapse: collapse;
+      font-size: 0.78rem;
+      text-align: center;
+    }
+
+    .confusion-matrix th,
+    .confusion-matrix td {
+      min-width: 34px;
+      padding: 7px 5px;
+      border: 1px solid var(--border);
+    }
+
+    .confusion-matrix th {
+      background: #f4f6fb;
+    }
+
+    .drawing-canvas {
+      display: block;
+      width: min(100%, 360px);
+      aspect-ratio: 1;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #000;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    .processed-canvas {
+      width: 168px !important;
+      height: 168px !important;
+      image-rendering: pixelated;
+      border: 1px solid var(--border);
+      background: #000;
+    }
+
+    .prediction-number {
+      margin: 10px 0;
+      color: var(--accent);
+      font-size: 3rem;
+      font-weight: 750;
+      line-height: 1;
+    }
+
+    .probability-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .probability-row {
+      display: grid;
+      grid-template-columns: 20px 1fr 50px;
+      gap: 8px;
+      align-items: center;
+      font-size: 0.82rem;
+    }
+
+    .probability-track {
+      height: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #eef0f6;
+    }
+
+    .probability-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: var(--accent);
+    }
+
+    .empty-state {
+      display: grid;
+      min-height: 160px;
+      place-content: center;
+      margin-top: 18px;
+      padding: 24px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .content-panel {
+      overflow: hidden;
+    }
+
+    .tab-list {
+      display: flex;
+      gap: 4px;
+      padding: 12px 16px 0;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+
+    .tab-button {
+      flex: 0 0 auto;
+      padding: 12px 14px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .tab-button[aria-selected="true"] {
+      border-bottom-color: var(--accent);
+      color: var(--accent);
+      font-weight: 650;
+    }
+
+    .tab-button:focus-visible {
+      outline: 3px solid rgb(79 70 229 / 28%);
+      outline-offset: -3px;
+      border-radius: 6px;
+    }
+
+    .tab-content {
+      min-height: 320px;
+      padding: 28px;
+    }
+
+    .empty-state {
+      display: grid;
+      min-height: 160px;
+      place-content: center;
+      margin-top: 18px;
+      padding: 24px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .empty-state p {
+      max-width: 420px;
+      margin: 0 auto;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    @media (max-width: 720px) {
+      .app-shell {
+        padding: 20px 16px;
+      }
+
+      .workspace {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+      }
+
+      .settings-panel {
+        padding: 18px;
+      }
+
+      .tab-list {
+        padding-right: 10px;
+        padding-left: 10px;
+      }
+
+      .tab-button {
+        padding: 12px 10px;
+      }
+
+      .tab-content {
+        min-height: 280px;
+        padding: 22px 18px;
+      }
+
+      .training-toolbar,
+      .test-layout,
+      .chart-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .digit-counts {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+
+      .chart-card canvas {
+        height: 210px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="page-header">
+      <h1>MNIST 손글씨 숫자 인식기</h1>
+      <p>손으로 쓴 숫자를 학습하고 인식하는 신경망을 만들어 봅니다.</p>
+    </header>
+
+    <div class="workspace">
+      <aside class="settings-panel" aria-labelledby="settings-title">
+        <h2 id="settings-title">설정</h2>
+        <div class="settings-group">
+          <div class="button-stack">
+            <button class="action-button" id="load-default" type="button">mnist_784.tab 불러오기</button>
+            <button class="action-button secondary" id="upload-trigger" type="button">.tab 파일 올리기</button>
+            <input id="data-file" type="file" accept=".tab,text/tab-separated-values,text/plain" hidden>
+          </div>
+          <label for="epochs">에포크 수</label>
+          <input id="epochs" type="number" min="1" max="20" value="1">
+          <label for="learning-rate">학습률</label>
+          <input id="learning-rate" type="number" min="0.0001" max="1" step="0.001" value="0.03">
+          <div class="button-stack">
+            <button class="action-button" id="start-training" type="button" disabled>학습 시작</button>
+            <button class="action-button secondary" id="stop-training" type="button" disabled>학습 중지</button>
+          </div>
+          <progress id="progress-bar" max="1" value="0" hidden></progress>
+          <p class="status-message" id="status-message" role="status" aria-live="polite">데이터를 불러와 주세요.</p>
+        </div>
+      </aside>
+
+      <section class="content-panel" aria-label="작업 공간">
+        <div class="tab-list" role="tablist" aria-label="작업 단계">
+          <button class="tab-button" id="tab-data" type="button" role="tab"
+            aria-selected="true" aria-controls="panel-data" tabindex="0">데이터</button>
+          <button class="tab-button" id="tab-training" type="button" role="tab"
+            aria-selected="false" aria-controls="panel-training" tabindex="-1">학습</button>
+          <button class="tab-button" id="tab-evaluation" type="button" role="tab"
+            aria-selected="false" aria-controls="panel-evaluation" tabindex="-1">평가</button>
+          <button class="tab-button" id="tab-testing" type="button" role="tab"
+            aria-selected="false" aria-controls="panel-testing" tabindex="-1">테스트</button>
+        </div>
+
+        <section class="tab-content" id="panel-data" role="tabpanel"
+          aria-labelledby="tab-data" tabindex="0">
+          <h2>데이터</h2>
+          <div class="stats-grid">
+            <div class="stat-card"><span>전체 행 수</span><strong id="row-count">-</strong></div>
+            <div class="stat-card"><span>분할</span><strong>학습 80% · 검증 20%</strong></div>
+          </div>
+          <h3>숫자별 개수</h3>
+          <div class="digit-counts" id="digit-counts"></div>
+          <h3>학습 데이터 미리보기 (처음 20장)</h3>
+          <div class="digit-gallery" id="digit-gallery">
+            <p class="status-message">데이터를 불러오면 숫자 이미지가 표시됩니다.</p>
+          </div>
+        </section>
+        <section class="tab-content" id="panel-training" role="tabpanel"
+          aria-labelledby="tab-training" tabindex="0" hidden>
+          <h2>학습</h2>
+          <p class="status-message" id="training-summary">MLP: 784 → 128 → 64 → 10</p>
+          <div class="chart-grid">
+            <article class="chart-card"><h3>손실</h3><canvas id="loss-chart" aria-label="에포크별 손실 그래프"></canvas></article>
+            <article class="chart-card"><h3>정확도</h3><canvas id="accuracy-chart" aria-label="학습 및 검증 정확도 그래프"></canvas></article>
+          </div>
+        </section>
+        <section class="tab-content" id="panel-evaluation" role="tabpanel"
+          aria-labelledby="tab-evaluation" tabindex="0" hidden>
+          <h2>평가</h2>
+          <div class="stat-card"><span>검증 정확도</span><strong id="validation-accuracy">학습 전</strong></div>
+          <h3 style="margin-top:24px">혼동행렬 (행: 실제 · 열: 예측)</h3>
+          <div class="matrix-wrap" id="confusion-matrix"><p class="status-message">학습을 완료하면 표시됩니다.</p></div>
+          <h3 style="margin-top:24px">틀린 예측 보기</h3>
+          <div class="mistake-gallery" id="mistake-gallery"></div>
+        </section>
+        <section class="tab-content" id="panel-testing" role="tabpanel"
+          aria-labelledby="tab-testing" tabindex="0" hidden>
+          <h2>테스트</h2>
+          <p class="status-message">검은 칸에 흰색으로 숫자를 쓰거나 사진을 올려 예측해 보세요.</p>
+          <div class="button-stack" style="max-width:360px">
+            <button class="action-button secondary" id="test-upload-trigger" type="button">숫자 사진 올리기</button>
+            <input id="image-file" type="file" accept="image/*" hidden>
+            <button class="action-button secondary" id="clear-canvas" type="button">지우기</button>
+          </div>
+          <div class="test-layout">
+            <div>
+              <h3>입력</h3>
+              <canvas class="drawing-canvas" id="drawing-canvas" width="280" height="280"
+                aria-label="손글씨 숫자를 그리는 캔버스"></canvas>
+            </div>
+            <div>
+              <h3>전처리 결과 (28×28)</h3>
+              <canvas class="processed-canvas" id="processed-canvas" width="28" height="28"></canvas>
+              <div id="prediction-result" class="status-message">예측하려면 먼저 모델을 학습해 주세요.</div>
+              <div class="probability-list" id="probability-list"></div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const tabs = [...document.querySelectorAll('[role="tab"]')];
+    const elements = {
+      status: document.getElementById('status-message'),
+      progress: document.getElementById('progress-bar'),
+      loadButton: document.getElementById('load-default'),
+      uploadButton: document.getElementById('upload-trigger'),
+      dataFile: document.getElementById('data-file'),
+      trainButton: document.getElementById('start-training'),
+      stopButton: document.getElementById('stop-training'),
+      epochs: document.getElementById('epochs'),
+      learningRate: document.getElementById('learning-rate'),
+      drawing: document.getElementById('drawing-canvas'),
+      processed: document.getElementById('processed-canvas'),
+    };
+
+    let dataset = null;
+    let model = null;
+    let trainingWorker = null;
+    let metrics = [];
+    let drawing = false;
+
+    function selectTab(selectedTab, moveFocus = false) {
+      tabs.forEach((tab) => {
+        const selected = tab === selectedTab;
+        tab.setAttribute('aria-selected', String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+        document.getElementById(tab.getAttribute('aria-controls')).hidden = !selected;
+      });
+
+      drawCharts();
+      if (moveFocus) selectedTab.focus();
+    }
+
+    function setStatus(message, state = '') {
+      elements.status.textContent = message;
+      elements.status.className = `status-message ${state}`.trim();
+    }
+
+    function setLoading(message, value = null) {
+      elements.progress.hidden = false;
+      if (value === null) {
+        elements.progress.removeAttribute('value');
+      } else {
+        elements.progress.value = value;
+      }
+      setStatus(message);
+    }
+
+    function createParserWorker() {
+      function parserMain() {
+        function parse(text) {
+          let cursor = 0;
+          function nextLine() {
+            const end = text.indexOf('\n', cursor);
+            const line = text.slice(cursor, end < 0 ? text.length : end).replace(/\r$/, '');
+            cursor = end < 0 ? text.length : end + 1;
+            return line;
+          }
+
+          const names = nextLine().split('\t');
+          const types = nextLine().split('\t');
+          const markers = nextLine().split('\t');
+          if (names.length !== 785 || types.length !== 785 || markers.length !== 785) {
+            throw new Error('.tab 머리글은 785개 열로 된 3줄이어야 합니다.');
+          }
+          for (let column = 0; column < 784; column += 1) {
+            if (names[column] !== `pixel${column + 1}` || types[column] !== 'c' || markers[column] !== '') {
+              throw new Error(`.tab 머리글 pixel${column + 1} 형식이 올바르지 않습니다.`);
+            }
+          }
+          if (names[784] !== 'class' || types[784] !== 'd' || markers[784] !== 'class') {
+            throw new Error('.tab 마지막 열은 class여야 합니다.');
+          }
+
+          const dataStart = cursor;
+          let rows = 0;
+          while (cursor < text.length) {
+            if (nextLine() !== '') rows += 1;
+          }
+          if (rows === 0) throw new Error('.tab 파일에 데이터가 없습니다.');
+
+          const pixels = new Uint8Array(rows * 784);
+          const labels = new Uint8Array(rows);
+          cursor = dataStart;
+          let row = 0;
+          while (cursor < text.length) {
+            const line = nextLine();
+            if (line === '') continue;
+            const values = line.split('\t');
+            if (values.length !== 785) throw new Error(`${row + 4}번째 줄에 785개 열이 없습니다.`);
+            const offset = row * 784;
+            for (let pixel = 0; pixel < 784; pixel += 1) {
+              const value = Number(values[pixel]);
+              if (!Number.isInteger(value) || value < 0 || value > 255) {
+                throw new Error(`${row + 4}번째 줄 pixel${pixel + 1} 값이 0~255가 아닙니다.`);
+              }
+              pixels[offset + pixel] = value;
+            }
+            const label = Number(values[784]);
+            if (!Number.isInteger(label) || label < 0 || label > 9) {
+              throw new Error(`${row + 4}번째 줄 class 값이 0~9가 아닙니다.`);
+            }
+            labels[row] = label;
+            row += 1;
+            if (row % 500 === 0) self.postMessage({ type: 'progress', value: row / rows });
+          }
+          return { pixels, labels, rowCount: rows };
+        }
+
+        self.onmessage = (event) => {
+          try {
+            const result = parse(event.data);
+            self.postMessage({ type: 'done', result }, [result.pixels.buffer, result.labels.buffer]);
+          } catch (error) {
+            self.postMessage({ type: 'error', message: error.message });
+          }
+        };
+      }
+      const source = `(${parserMain.toString()})()`;
+      const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+      const worker = new Worker(url);
+      worker.objectUrl = url;
+      return worker;
+    }
+
+    function disposeWorker(worker) {
+      worker.terminate();
+      URL.revokeObjectURL(worker.objectUrl);
+    }
+
+    async function parseDataset(text) {
+      const worker = createParserWorker();
+      return new Promise((resolve, reject) => {
+        worker.onmessage = (event) => {
+          if (event.data.type === 'progress') {
+            elements.progress.value = event.data.value;
+          } else if (event.data.type === 'done') {
+            disposeWorker(worker);
+            resolve(event.data.result);
+          } else {
+            disposeWorker(worker);
+            reject(new Error(event.data.message));
+          }
+        };
+        worker.onerror = (event) => {
+          disposeWorker(worker);
+          reject(new Error(event.message || '데이터 파서 작업자에서 오류가 발생했습니다.'));
+        };
+        worker.postMessage(text);
+      });
+    }
+
+    function drawDigit(canvas, pixels, offset = 0) {
+      const context = canvas.getContext('2d');
+      const image = context.createImageData(28, 28);
+      for (let i = 0; i < 784; i += 1) {
+        const value = pixels[offset + i];
+        const index = i * 4;
+        image.data[index] = value;
+        image.data[index + 1] = value;
+        image.data[index + 2] = value;
+        image.data[index + 3] = 255;
+      }
+      context.putImageData(image, 0, 0);
+    }
+
+    function showDataset(data, sourceName) {
+      dataset = data;
+      model = null;
+      metrics = [];
+      elements.trainButton.disabled = false;
+      document.getElementById('row-count').textContent = data.rowCount.toLocaleString();
+      const counts = Array(10).fill(0);
+      for (const label of data.labels) counts[label] += 1;
+      const countContainer = document.getElementById('digit-counts');
+      countContainer.replaceChildren(...counts.map((count, digit) => {
+        const item = document.createElement('div');
+        item.className = 'digit-count';
+        item.textContent = `${digit}: ${count.toLocaleString()}`;
+        return item;
+      }));
+
+      const gallery = document.getElementById('digit-gallery');
+      gallery.replaceChildren();
+      const previewCount = Math.min(20, data.rowCount);
+      for (let index = 0; index < previewCount; index += 1) {
+        const figure = document.createElement('figure');
+        figure.className = 'digit-card';
+        const canvas = document.createElement('canvas');
+        canvas.width = 28;
+        canvas.height = 28;
+        drawDigit(canvas, data.pixels, index * 784);
+        const caption = document.createElement('figcaption');
+        caption.textContent = `정답 ${data.labels[index]}`;
+        figure.append(canvas, caption);
+        gallery.append(figure);
+      }
+      document.getElementById('validation-accuracy').textContent = '학습 전';
+      document.getElementById('confusion-matrix').innerHTML = '<p class="status-message">학습을 완료하면 표시됩니다.</p>';
+      document.getElementById('mistake-gallery').replaceChildren();
+      drawCharts();
+      elements.progress.hidden = true;
+      setStatus(`${sourceName}: ${data.rowCount.toLocaleString()}개 행을 불러왔습니다.`, 'success');
+    }
+
+    async function loadText(text, sourceName) {
+      if (!text) throw new Error('선택한 파일이 비어 있습니다.');
+      elements.loadButton.disabled = true;
+      elements.uploadButton.disabled = true;
+      setLoading(`${sourceName} 읽기 준비 중…`);
+      try {
+        setLoading(`${sourceName} 읽는 중…`);
+        const data = await parseDataset(text);
+        showDataset(data, sourceName);
+      } finally {
+        elements.loadButton.disabled = false;
+        elements.uploadButton.disabled = false;
+      }
+    }
+
+    async function loadDefaultDataset() {
+      try {
+        elements.progress.hidden = false;
+        setLoading('mnist_784.tab을 서버에서 가져오는 중…');
+        const response = await fetch('./mnist_784.tab');
+        if (!response.ok) throw new Error(`데이터 요청 실패 (HTTP ${response.status})`);
+        await loadText(await response.text(), 'mnist_784.tab');
+      } catch (error) {
+        elements.progress.hidden = true;
+        setStatus(`데이터를 불러오지 못했습니다: ${error.message} (포트 3000 웹 서버에서 실행해 주세요.)`, 'error');
+      }
+    }
+
+    function seededRandom(seed) {
+      let value = seed >>> 0;
+      return () => {
+        value = (value * 1664525 + 1013904223) >>> 0;
+        return value / 4294967296;
+      };
+    }
+
+    function createTrainingWorker() {
+      function trainingMain() {
+        const inputSize = 784;
+        const hiddenOne = 128;
+        const hiddenTwo = 64;
+        const outputSize = 10;
+        const random = (seed) => {
+          let value = seed >>> 0;
+          return () => {
+            value = (value * 1664525 + 1013904223) >>> 0;
+            return value / 4294967296;
+          };
+        };
+        const initialize = (length, fanIn, fanOut, nextRandom) => {
+          const values = new Float32Array(length);
+          const limit = Math.sqrt(6 / (fanIn + fanOut));
+          for (let i = 0; i < length; i += 1) values[i] = (nextRandom() * 2 - 1) * limit;
+          return values;
+        };
+        const forward = (pixels, offset, w1, b1, w2, b2, w3, b3) => {
+          const a1 = new Float32Array(hiddenOne);
+          const a2 = new Float32Array(hiddenTwo);
+          const out = new Float32Array(outputSize);
+          for (let h = 0; h < hiddenOne; h += 1) {
+            let sum = b1[h];
+            const weightOffset = h * inputSize;
+            for (let i = 0; i < inputSize; i += 1) sum += w1[weightOffset + i] * (pixels[offset + i] / 255);
+            a1[h] = sum > 0 ? sum : 0;
+          }
+          for (let h = 0; h < hiddenTwo; h += 1) {
+            let sum = b2[h];
+            const weightOffset = h * hiddenOne;
+            for (let i = 0; i < hiddenOne; i += 1) sum += w2[weightOffset + i] * a1[i];
+            a2[h] = sum > 0 ? sum : 0;
+          }
+          let max = -Infinity;
+          for (let digit = 0; digit < outputSize; digit += 1) {
+            let sum = b3[digit];
+            const weightOffset = digit * hiddenTwo;
+            for (let i = 0; i < hiddenTwo; i += 1) sum += w3[weightOffset + i] * a2[i];
+            out[digit] = sum;
+            if (sum > max) max = sum;
+          }
+          let total = 0;
+          for (let digit = 0; digit < outputSize; digit += 1) {
+            out[digit] = Math.exp(out[digit] - max);
+            total += out[digit];
+          }
+          for (let digit = 0; digit < outputSize; digit += 1) out[digit] /= total;
+          return { a1, a2, out };
+        };
+
+        self.onmessage = (event) => {
+          const { pixels, labels, epochs, learningRate } = event.data;
+          const nextRandom = random(2026);
+          const weights = {
+            w1: initialize(inputSize * hiddenOne, inputSize, hiddenOne, nextRandom),
+            b1: new Float32Array(hiddenOne),
+            w2: initialize(hiddenOne * hiddenTwo, hiddenOne, hiddenTwo, nextRandom),
+            b2: new Float32Array(hiddenTwo),
+            w3: initialize(hiddenTwo * outputSize, hiddenTwo, outputSize, nextRandom),
+            b3: new Float32Array(outputSize),
+          };
+          const indices = Array.from({ length: labels.length }, (_, index) => index);
+          const splitRandom = random(42);
+          for (let i = indices.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(splitRandom() * (i + 1));
+            [indices[i], indices[j]] = [indices[j], indices[i]];
+          }
+          const trainSize = Math.floor(indices.length * 0.8);
+          const trainIndices = indices.slice(0, trainSize);
+          const validationIndices = indices.slice(trainSize);
+          const batchSize = 32;
+          const gradW1 = new Float32Array(weights.w1.length);
+          const gradB1 = new Float32Array(weights.b1.length);
+          const gradW2 = new Float32Array(weights.w2.length);
+          const gradB2 = new Float32Array(weights.b2.length);
+          const gradW3 = new Float32Array(weights.w3.length);
+          const gradB3 = new Float32Array(weights.b3.length);
+          const delta3 = new Float32Array(outputSize);
+          const delta2 = new Float32Array(hiddenTwo);
+          const delta1 = new Float32Array(hiddenOne);
+
+          for (let epoch = 0; epoch < epochs; epoch += 1) {
+            const shuffleRandom = random(2026 + epoch + 1);
+            for (let i = trainIndices.length - 1; i > 0; i -= 1) {
+              const j = Math.floor(shuffleRandom() * (i + 1));
+              [trainIndices[i], trainIndices[j]] = [trainIndices[j], trainIndices[i]];
+            }
+
+            let loss = 0;
+            let correct = 0;
+            for (let start = 0; start < trainIndices.length; start += batchSize) {
+              gradW1.fill(0);
+              gradB1.fill(0);
+              gradW2.fill(0);
+              gradB2.fill(0);
+              gradW3.fill(0);
+              gradB3.fill(0);
+              const end = Math.min(start + batchSize, trainIndices.length);
+              for (let position = start; position < end; position += 1) {
+                const sample = trainIndices[position];
+                const offset = sample * inputSize;
+                const label = labels[sample];
+                const { a1, a2, out } = forward(pixels, offset, weights.w1, weights.b1, weights.w2, weights.b2, weights.w3, weights.b3);
+                let prediction = 0;
+                for (let d = 1; d < outputSize; d += 1) if (out[d] > out[prediction]) prediction = d;
+                if (prediction === label) correct += 1;
+                loss -= Math.log(Math.max(out[label], 1e-12));
+
+                for (let d = 0; d < outputSize; d += 1) delta3[d] = out[d] - (d === label ? 1 : 0);
+                for (let h = 0; h < hiddenTwo; h += 1) {
+                  let sum = 0;
+                  for (let d = 0; d < outputSize; d += 1) sum += weights.w3[d * hiddenTwo + h] * delta3[d];
+                  delta2[h] = a2[h] > 0 ? sum : 0;
+                }
+                for (let h = 0; h < hiddenOne; h += 1) {
+                  let sum = 0;
+                  for (let k = 0; k < hiddenTwo; k += 1) sum += weights.w2[k * hiddenOne + h] * delta2[k];
+                  delta1[h] = a1[h] > 0 ? sum : 0;
+                }
+                for (let d = 0; d < outputSize; d += 1) {
+                  gradB3[d] += delta3[d];
+                  const offset3 = d * hiddenTwo;
+                  for (let h = 0; h < hiddenTwo; h += 1) gradW3[offset3 + h] += delta3[d] * a2[h];
+                }
+                for (let h = 0; h < hiddenTwo; h += 1) {
+                  gradB2[h] += delta2[h];
+                  const offset2 = h * hiddenOne;
+                  for (let k = 0; k < hiddenOne; k += 1) gradW2[offset2 + k] += delta2[h] * a1[k];
+                }
+                for (let h = 0; h < hiddenOne; h += 1) {
+                  gradB1[h] += delta1[h];
+                  const offset1 = h * inputSize;
+                  for (let i = 0; i < inputSize; i += 1) gradW1[offset1 + i] += delta1[h] * (pixels[offset + i] / 255);
+                }
+              }
+              const scale = learningRate / (end - start);
+              for (let i = 0; i < weights.w1.length; i += 1) weights.w1[i] -= gradW1[i] * scale;
+              for (let i = 0; i < weights.b1.length; i += 1) weights.b1[i] -= gradB1[i] * scale;
+              for (let i = 0; i < weights.w2.length; i += 1) weights.w2[i] -= gradW2[i] * scale;
+              for (let i = 0; i < weights.b2.length; i += 1) weights.b2[i] -= gradB2[i] * scale;
+              for (let i = 0; i < weights.w3.length; i += 1) weights.w3[i] -= gradW3[i] * scale;
+              for (let i = 0; i < weights.b3.length; i += 1) weights.b3[i] -= gradB3[i] * scale;
+              if (start % (batchSize * 16) === 0) {
+                self.postMessage({ type: 'progress', epoch: epoch + 1, epochs, batches: Math.ceil(trainIndices.length / batchSize), batch: Math.floor(start / batchSize) + 1 });
+              }
+            }
+
+            let validationCorrect = 0;
+            for (const sample of validationIndices) {
+              const { out } = forward(pixels, sample * inputSize, weights.w1, weights.b1, weights.w2, weights.b2, weights.w3, weights.b3);
+              let prediction = 0;
+              for (let d = 1; d < outputSize; d += 1) if (out[d] > out[prediction]) prediction = d;
+              if (prediction === labels[sample]) validationCorrect += 1;
+            }
+            const result = {
+              epoch: epoch + 1,
+              loss: loss / trainSize,
+              trainAccuracy: correct / trainSize,
+              validationAccuracy: validationCorrect / validationIndices.length,
+            };
+            self.postMessage({ type: 'epoch', ...result });
+          }
+
+          const confusion = Array.from({ length: 10 }, () => Array(10).fill(0));
+          const mistakes = [];
+          let validationCorrect = 0;
+          for (const sample of validationIndices) {
+            const { out } = forward(pixels, sample * inputSize, weights.w1, weights.b1, weights.w2, weights.b2, weights.w3, weights.b3);
+            let prediction = 0;
+            for (let d = 1; d < outputSize; d += 1) if (out[d] > out[prediction]) prediction = d;
+            const label = labels[sample];
+            confusion[label][prediction] += 1;
+            if (prediction === label) validationCorrect += 1;
+            else if (mistakes.length < 20) {
+              mistakes.push({ label, prediction, pixels: Array.from(pixels.subarray(sample * inputSize, (sample + 1) * inputSize)) });
+            }
+          }
+          const transfer = Object.values(weights).map((array) => array.buffer);
+          self.postMessage({
+            type: 'done',
+            weights,
+            validationAccuracy: validationCorrect / validationIndices.length,
+            confusion,
+            mistakes,
+          }, transfer);
+        };
+      }
+      const source = `(${trainingMain.toString()})()`;
+      const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+      const worker = new Worker(url);
+      worker.objectUrl = url;
+      return worker;
+    }
+
+    function drawCharts() {
+      drawLineChart(document.getElementById('loss-chart'), [{ name: '손실', color: '#4f46e5', values: metrics.map((item) => item.loss) }]);
+      drawLineChart(document.getElementById('accuracy-chart'), [
+        { name: '학습', color: '#4f46e5', values: metrics.map((item) => item.trainAccuracy) },
+        { name: '검증', color: '#16a36a', values: metrics.map((item) => item.validationAccuracy) },
+      ]);
+    }
+
+    function drawLineChart(canvas, series) {
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.round(rect.width * ratio);
+      canvas.height = Math.round(rect.height * ratio);
+      const context = canvas.getContext('2d');
+      context.scale(ratio, ratio);
+      const width = rect.width;
+      const height = rect.height;
+      const padding = { left: 42, right: 14, top: 22, bottom: 30 };
+      context.clearRect(0, 0, width, height);
+      context.font = '12px sans-serif';
+      context.fillStyle = '#657287';
+      context.strokeStyle = '#e1e6ef';
+      for (let tick = 0; tick <= 4; tick += 1) {
+        const y = padding.top + (height - padding.top - padding.bottom) * tick / 4;
+        context.beginPath();
+        context.moveTo(padding.left, y);
+        context.lineTo(width - padding.right, y);
+        context.stroke();
+        const max = canvas.id === 'loss-chart'
+          ? Math.max(1, ...series.flatMap((line) => line.values))
+          : 1;
+        context.fillText((max * (1 - tick / 4)).toFixed(2), 2, y + 4);
+      }
+      const count = Math.max(1, ...series.map((line) => line.values.length));
+      const maxValue = canvas.id === 'loss-chart'
+        ? Math.max(1, ...series.flatMap((line) => line.values))
+        : 1;
+      for (const line of series) {
+        context.strokeStyle = line.color;
+        context.lineWidth = 2;
+        context.beginPath();
+        line.values.forEach((value, index) => {
+          const x = padding.left + (width - padding.left - padding.right) * (count === 1 ? 0.5 : index / (count - 1));
+          const y = padding.top + (height - padding.top - padding.bottom) * (1 - value / maxValue);
+          if (index === 0) context.moveTo(x, y);
+          else context.lineTo(x, y);
+        });
+        context.stroke();
+        line.values.forEach((value, index) => {
+          const x = padding.left + (width - padding.left - padding.right) * (count === 1 ? 0.5 : index / (count - 1));
+          const y = padding.top + (height - padding.top - padding.bottom) * (1 - value / maxValue);
+          context.fillStyle = line.color;
+          context.beginPath();
+          context.arc(x, y, 3, 0, Math.PI * 2);
+          context.fill();
+        });
+      }
+      context.fillStyle = '#657287';
+      for (let index = 0; index < count; index += 1) {
+        const x = padding.left + (width - padding.left - padding.right) * (count === 1 ? 0.5 : index / (count - 1));
+        context.fillText(String(index + 1), x - 3, height - 8);
+      }
+      let legendX = padding.left;
+      for (const line of series) {
+        context.fillStyle = line.color;
+        context.fillRect(legendX, 4, 10, 10);
+        context.fillStyle = '#657287';
+        context.fillText(line.name, legendX + 14, 13);
+        legendX += 60;
+      }
+    }
+
+    function renderEvaluation(result) {
+      document.getElementById('validation-accuracy').textContent = `${(result.validationAccuracy * 100).toFixed(2)}%`;
+      const table = document.createElement('table');
+      table.className = 'confusion-matrix';
+      const header = document.createElement('tr');
+      header.append(document.createElement('th'));
+      for (let digit = 0; digit < 10; digit += 1) {
+        const cell = document.createElement('th');
+        cell.textContent = String(digit);
+        header.append(cell);
+      }
+      const head = document.createElement('thead');
+      head.append(header);
+      const body = document.createElement('tbody');
+      result.confusion.forEach((row, actual) => {
+        const tableRow = document.createElement('tr');
+        const label = document.createElement('th');
+        label.textContent = String(actual);
+        tableRow.append(label);
+        row.forEach((value) => {
+          const cell = document.createElement('td');
+          cell.textContent = value.toLocaleString();
+          tableRow.append(cell);
+        });
+        body.append(tableRow);
+      });
+      table.append(head, body);
+      document.getElementById('confusion-matrix').replaceChildren(table);
+      const gallery = document.getElementById('mistake-gallery');
+      gallery.replaceChildren();
+      for (const mistake of result.mistakes) {
+        const figure = document.createElement('figure');
+        figure.className = 'digit-card';
+        const canvas = document.createElement('canvas');
+        canvas.width = 28;
+        canvas.height = 28;
+        drawDigit(canvas, mistake.pixels);
+        const caption = document.createElement('figcaption');
+        caption.textContent = `실제 ${mistake.label} → 예측 ${mistake.prediction}`;
+        figure.append(canvas, caption);
+        gallery.append(figure);
+      }
+    }
+
+    async function startTraining() {
+      const epochs = Number(elements.epochs.value);
+      const learningRate = Number(elements.learningRate.value);
+      if (!dataset) return setStatus('먼저 학습 데이터를 불러와 주세요.', 'error');
+      if (dataset.rowCount < 2) return setStatus('학습과 검증에 사용할 데이터가 최소 2개 필요합니다.', 'error');
+      if (!Number.isInteger(epochs) || epochs < 1 || epochs > 20) return setStatus('에포크는 1~20 사이 정수로 입력해 주세요.', 'error');
+      if (!Number.isFinite(learningRate) || learningRate <= 0 || learningRate > 1) return setStatus('학습률은 0보다 크고 1 이하여야 합니다.', 'error');
+
+      model = null;
+      metrics = [];
+      drawCharts();
+      elements.trainButton.disabled = true;
+      elements.stopButton.disabled = false;
+      elements.progress.hidden = false;
+      elements.progress.removeAttribute('value');
+      document.getElementById('training-summary').textContent = '시드 2026으로 80:20 분할 중…';
+      trainingWorker = createTrainingWorker();
+      trainingWorker.onmessage = (event) => {
+        const result = event.data;
+        if (result.type === 'progress') {
+          const fraction = ((result.epoch - 1) + result.batch / result.batches) / epochs;
+          elements.progress.value = fraction;
+          setStatus(`학습 중: 에포크 ${result.epoch}/${epochs}, 미니배치 ${result.batch}/${result.batches}`);
+        } else if (result.type === 'epoch') {
+          metrics.push(result);
+          drawCharts();
+          document.getElementById('training-summary').textContent =
+            `에포크 ${result.epoch}/${epochs} · 손실 ${result.loss.toFixed(4)} · 학습 정확도 ${(result.trainAccuracy * 100).toFixed(2)}% · 검증 정확도 ${(result.validationAccuracy * 100).toFixed(2)}%`;
+        } else if (result.type === 'done') {
+          model = result.weights;
+          renderEvaluation(result);
+          elements.progress.value = 1;
+          elements.progress.hidden = true;
+          elements.trainButton.disabled = false;
+          elements.stopButton.disabled = true;
+          setStatus(`학습 완료 · 검증 정확도 ${(result.validationAccuracy * 100).toFixed(2)}%`, 'success');
+          disposeWorker(trainingWorker);
+          trainingWorker = null;
+        } else if (result.type === 'error') {
+          finishTrainingError(result.message);
+        }
+      };
+      trainingWorker.onerror = (event) => finishTrainingError(event.message || '학습 작업자에서 오류가 발생했습니다.');
+      trainingWorker.postMessage({
+        pixels: dataset.pixels,
+        labels: dataset.labels,
+        epochs,
+        learningRate,
+      });
+    }
+
+    function finishTrainingError(message) {
+      if (trainingWorker) disposeWorker(trainingWorker);
+      trainingWorker = null;
+      elements.trainButton.disabled = false;
+      elements.stopButton.disabled = true;
+      elements.progress.hidden = true;
+      setStatus(`학습에 실패했습니다: ${message}`, 'error');
+    }
+
+    function stopTraining() {
+      if (!trainingWorker) return;
+      disposeWorker(trainingWorker);
+      trainingWorker = null;
+      elements.trainButton.disabled = false;
+      elements.stopButton.disabled = true;
+      elements.progress.hidden = true;
+      setStatus('학습을 중지했습니다. 다시 시작하면 새 모델을 처음부터 학습합니다.');
+    }
+
+    function predict(input) {
+      const { w1, b1, w2, b2, w3, b3 } = model;
+      const a1 = new Float32Array(128);
+      const a2 = new Float32Array(64);
+      const probabilities = new Float32Array(10);
+      for (let h = 0; h < 128; h += 1) {
+        let sum = b1[h];
+        for (let i = 0; i < 784; i += 1) sum += w1[h * 784 + i] * input[i];
+        a1[h] = Math.max(0, sum);
+      }
+      for (let h = 0; h < 64; h += 1) {
+        let sum = b2[h];
+        for (let i = 0; i < 128; i += 1) sum += w2[h * 128 + i] * a1[i];
+        a2[h] = Math.max(0, sum);
+      }
+      let max = -Infinity;
+      for (let digit = 0; digit < 10; digit += 1) {
+        let sum = b3[digit];
+        for (let i = 0; i < 64; i += 1) sum += w3[digit * 64 + i] * a2[i];
+        probabilities[digit] = sum;
+        max = Math.max(max, sum);
+      }
+      let total = 0;
+      for (let digit = 0; digit < 10; digit += 1) {
+        probabilities[digit] = Math.exp(probabilities[digit] - max);
+        total += probabilities[digit];
+      }
+      for (let digit = 0; digit < 10; digit += 1) probabilities[digit] /= total;
+      return probabilities;
+    }
+
+    function preprocessCanvas(source) {
+      const sourceContext = source.getContext('2d', { willReadFrequently: true });
+      const pixels = sourceContext.getImageData(0, 0, source.width, source.height);
+      let mean = 0;
+      for (let i = 0; i < pixels.data.length; i += 4) {
+        mean += (pixels.data[i] + pixels.data[i + 1] + pixels.data[i + 2]) / 3;
+      }
+      mean /= pixels.data.length / 4;
+      const invert = mean > 127;
+      let minX = source.width;
+      let minY = source.height;
+      let maxX = -1;
+      let maxY = -1;
+      const ink = new Uint8Array(source.width * source.height);
+      for (let y = 0; y < source.height; y += 1) {
+        for (let x = 0; x < source.width; x += 1) {
+          const index = (y * source.width + x) * 4;
+          const grey = Math.round(0.299 * pixels.data[index] + 0.587 * pixels.data[index + 1] + 0.114 * pixels.data[index + 2]);
+          const value = invert ? 255 - grey : grey;
+          ink[y * source.width + x] = value;
+          if (value > 24) {
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+          }
+        }
+      }
+
+      const output = document.createElement('canvas');
+      output.width = 28;
+      output.height = 28;
+      const outputContext = output.getContext('2d');
+      outputContext.fillStyle = '#000';
+      outputContext.fillRect(0, 0, 28, 28);
+      if (maxX >= minX && maxY >= minY) {
+        const width = maxX - minX + 1;
+        const height = maxY - minY + 1;
+        const scale = 20 / Math.max(width, height);
+        const scaledWidth = Math.max(1, Math.round(width * scale));
+        const scaledHeight = Math.max(1, Math.round(height * scale));
+        const scaled = document.createElement('canvas');
+        scaled.width = scaledWidth;
+        scaled.height = scaledHeight;
+        const scaledContext = scaled.getContext('2d');
+        const cropped = document.createElement('canvas');
+        cropped.width = width;
+        cropped.height = height;
+        const croppedContext = cropped.getContext('2d');
+        const imageData = croppedContext.createImageData(width, height);
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            const value = ink[(minY + y) * source.width + minX + x];
+            const index = (y * width + x) * 4;
+            imageData.data[index] = value;
+            imageData.data[index + 1] = value;
+            imageData.data[index + 2] = value;
+            imageData.data[index + 3] = 255;
+          }
+        }
+        croppedContext.putImageData(imageData, 0, 0);
+        scaledContext.drawImage(cropped, 0, 0, scaledWidth, scaledHeight);
+        outputContext.drawImage(scaled, Math.round((28 - scaledWidth) / 2), Math.round((28 - scaledHeight) / 2));
+
+        const image = outputContext.getImageData(0, 0, 28, 28);
+        let mass = 0;
+        let centerX = 0;
+        let centerY = 0;
+        for (let y = 0; y < 28; y += 1) {
+          for (let x = 0; x < 28; x += 1) {
+            const value = image.data[(y * 28 + x) * 4];
+            mass += value;
+            centerX += x * value;
+            centerY += y * value;
+          }
+        }
+        if (mass > 0) {
+          const shiftX = Math.round(13.5 - centerX / mass);
+          const shiftY = Math.round(13.5 - centerY / mass);
+          const shifted = document.createElement('canvas');
+          shifted.width = 28;
+          shifted.height = 28;
+          shifted.getContext('2d').drawImage(output, shiftX, shiftY);
+          outputContext.clearRect(0, 0, 28, 28);
+          outputContext.drawImage(shifted, 0, 0);
+        }
+      }
+
+      const data = outputContext.getImageData(0, 0, 28, 28).data;
+      const input = new Float32Array(784);
+      for (let i = 0; i < 784; i += 1) input[i] = data[i * 4] / 255;
+      return { canvas: output, input };
+    }
+
+    function renderPrediction(sourceCanvas) {
+      if (!model) {
+        document.getElementById('prediction-result').textContent = '예측하려면 먼저 모델을 학습해 주세요.';
+        return;
+      }
+      const processed = preprocessCanvas(sourceCanvas);
+      const context = elements.processed.getContext('2d');
+      context.putImageData(processed.canvas.getContext('2d').getImageData(0, 0, 28, 28), 0, 0);
+      const probabilities = predict(processed.input);
+      let predicted = 0;
+      for (let digit = 1; digit < 10; digit += 1) if (probabilities[digit] > probabilities[predicted]) predicted = digit;
+      document.getElementById('prediction-result').innerHTML =
+        `<span>예측 숫자</span><div class="prediction-number">${predicted}</div><span>확률 ${(probabilities[predicted] * 100).toFixed(2)}%</span>`;
+      const list = document.getElementById('probability-list');
+      list.replaceChildren(...Array.from(probabilities, (probability, digit) => {
+        const row = document.createElement('div');
+        row.className = 'probability-row';
+        const label = document.createElement('strong');
+        label.textContent = String(digit);
+        const track = document.createElement('div');
+        track.className = 'probability-track';
+        const fill = document.createElement('div');
+        fill.className = 'probability-fill';
+        fill.style.width = `${probability * 100}%`;
+        track.append(fill);
+        const value = document.createElement('span');
+        value.textContent = `${(probability * 100).toFixed(1)}%`;
+        row.append(label, track, value);
+        return row;
+      }));
+    }
+
+    // 선택한 탭만 표시하고 키보드 포커스도 함께 이동합니다.
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => selectTab(tab));
+      tab.addEventListener('keydown', (event) => {
+        let nextIndex;
+        if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length;
+        if (event.key === 'ArrowLeft') nextIndex = (index - 1 + tabs.length) % tabs.length;
+        if (event.key === 'Home') nextIndex = 0;
+        if (event.key === 'End') nextIndex = tabs.length - 1;
+        if (nextIndex !== undefined) {
+          event.preventDefault();
+          selectTab(tabs[nextIndex], true);
+        }
+      });
+    });
+
+    elements.loadButton.addEventListener('click', loadDefaultDataset);
+    elements.uploadButton.addEventListener('click', () => elements.dataFile.click());
+    elements.dataFile.addEventListener('change', async () => {
+      const file = elements.dataFile.files[0];
+      if (!file) return;
+      try {
+        elements.loadButton.disabled = true;
+        elements.uploadButton.disabled = true;
+        setLoading(`${file.name} 파일을 읽는 중…`);
+        const text = await file.text();
+        await loadText(text, file.name);
+      } catch (error) {
+        elements.progress.hidden = true;
+        setStatus(`파일을 읽지 못했습니다: ${error.message}`, 'error');
+      } finally {
+        elements.loadButton.disabled = false;
+        elements.uploadButton.disabled = false;
+        elements.dataFile.value = '';
+      }
+    });
+    elements.trainButton.addEventListener('click', startTraining);
+    elements.stopButton.addEventListener('click', stopTraining);
+    window.addEventListener('resize', drawCharts);
+
+    const drawingContext = elements.drawing.getContext('2d');
+    drawingContext.fillStyle = '#000';
+    drawingContext.fillRect(0, 0, elements.drawing.width, elements.drawing.height);
+    drawingContext.strokeStyle = '#fff';
+    drawingContext.lineWidth = 20;
+    drawingContext.lineCap = 'round';
+    drawingContext.lineJoin = 'round';
+    elements.drawing.addEventListener('pointerdown', (event) => {
+      drawing = true;
+      elements.drawing.setPointerCapture(event.pointerId);
+      const bounds = elements.drawing.getBoundingClientRect();
+      const x = (event.clientX - bounds.left) * elements.drawing.width / bounds.width;
+      const y = (event.clientY - bounds.top) * elements.drawing.height / bounds.height;
+      drawingContext.beginPath();
+      drawingContext.moveTo(x, y);
+      drawingContext.lineTo(x + 0.1, y + 0.1);
+      drawingContext.stroke();
+      renderPrediction(elements.drawing);
+    });
+    elements.drawing.addEventListener('pointermove', (event) => {
+      if (!drawing) return;
+      const bounds = elements.drawing.getBoundingClientRect();
+      drawingContext.lineTo(
+        (event.clientX - bounds.left) * elements.drawing.width / bounds.width,
+        (event.clientY - bounds.top) * elements.drawing.height / bounds.height,
+      );
+      drawingContext.stroke();
+      renderPrediction(elements.drawing);
+    });
+    const stopDrawing = () => { drawing = false; };
+    elements.drawing.addEventListener('pointerup', stopDrawing);
+    elements.drawing.addEventListener('pointercancel', stopDrawing);
+    document.getElementById('clear-canvas').addEventListener('click', () => {
+      drawingContext.fillStyle = '#000';
+      drawingContext.fillRect(0, 0, elements.drawing.width, elements.drawing.height);
+      elements.processed.getContext('2d').clearRect(0, 0, 28, 28);
+      document.getElementById('prediction-result').textContent = model ? '숫자를 그리면 예측합니다.' : '예측하려면 먼저 모델을 학습해 주세요.';
+      document.getElementById('probability-list').replaceChildren();
+    });
+    document.getElementById('test-upload-trigger').addEventListener('click', () => document.getElementById('image-file').click());
+    document.getElementById('image-file').addEventListener('change', () => {
+      const file = document.getElementById('image-file').files[0];
+      if (!file) return;
+      const image = new Image();
+      const imageUrl = URL.createObjectURL(file);
+      image.onload = () => {
+        const size = 280;
+        const scale = Math.min(size / image.naturalWidth, size / image.naturalHeight);
+        const width = Math.max(1, Math.round(image.naturalWidth * scale));
+        const height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const photoCanvas = document.createElement('canvas');
+        photoCanvas.width = size;
+        photoCanvas.height = size;
+        const context = photoCanvas.getContext('2d');
+        context.fillStyle = '#fff';
+        context.fillRect(0, 0, size, size);
+        context.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+        drawingContext.fillStyle = '#000';
+        drawingContext.fillRect(0, 0, elements.drawing.width, elements.drawing.height);
+        drawingContext.drawImage(photoCanvas, 0, 0, elements.drawing.width, elements.drawing.height);
+        renderPrediction(elements.drawing);
+        URL.revokeObjectURL(imageUrl);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(imageUrl);
+        setStatus('이미지 파일을 열지 못했습니다.', 'error');
+      };
+      image.src = imageUrl;
+      document.getElementById('image-file').value = '';
+    });
+
+    drawCharts();
+  </script>
+</body>
+</html>
